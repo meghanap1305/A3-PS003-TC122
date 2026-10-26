@@ -2,3 +2,19 @@
 data/
 *.parquet
 
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Model checkpoints and generated model files
+models/*.pth
+
+# Large datasets
+data/raw/
+data/processed/
+
+# Environment variables
+.env
