@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Federated Traffic Demo (Live)</title>
+<style>
+:root{--bg:#f2f5f8;--card:#fff;--ink:#14202b;--mut:#5b6b7a;--line:#d6dee6;--grass:#cfe2cf;--road:#3b4148;--mark:#e8e8e8;--good:#16a34a;--warn:#d99a00;--bad:#dc2626;--iid:#0d9f6e;--non:#e0455a;--cen:#6b7f95;--ca:#2563eb;--cb:#9333ea;--cc:#0d9488;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b141d;--card:#122130;--ink:#e8eef4;--mut:#93a4b5;--line:#23374b;--grass:#10261a;--road:#2a3037;--mark:#9aa4ad;--cen:#9db0c4}}
+:root[data-theme="dark"]{--bg:#0b141d;--card:#122130;--ink:#e8eef4;--mut:#93a4b5;--line:#23374b;--grass:#10261a;--road:#2a3037;--mark:#9aa4ad;--cen:#9db0c4}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+h1{font-size:1.35rem;margin:0}.sub{color:var(--mut);margin:2px 0 12px}
+.banner{background:#d99a0022;border:1px solid var(--warn);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:.85rem}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.card h2{font-size:1.05rem;margin:0 0 2px}.card p{margin:0 0 8px;color:var(--mut);font-size:.85rem}
+.iid{border-top:4px solid var(--iid)}.non{border-top:4px solid var(--non)}.cls{border-top:4px solid var(--cen)}
+canvas{width:100%;height:auto;display:block;border-radius:10px}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.chip{border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:.8rem}
+.chip{border-left:5px solid var(--cc0,var(--line))}.chip b{display:block;font-size:.88rem}.tag{font-weight:700}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+button,select,.file{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+button.p{background:var(--iid);border-color:var(--iid);color:#fff;font-weight:600}
+.bar{flex:1;min-width:140px;height:8px;background:var(--line);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--iid);width:0}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+@media(max-width:820px){.row{grid-template-columns:1fr}}
+.leg{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--mut);margin-top:6px}.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.cb{display:flex;gap:28px;align-items:flex-end;height:150px;justify-content:center;margin-top:6px}
+.cb div{width:70px;text-align:center;font-size:.78rem;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.cb span{display:block;border-radius:6px 6px 0 0;min-height:3px;transition:height .6s}
+ol{margin:0;padding-left:18px;font-size:.88rem}ol li{margin-bottom:6px}
+.key{font-size:.78rem;color:var(--mut);margin-top:8px}
+
+.st{display:inline-block;font-size:.72rem;font-weight:700;border-radius:20px;padding:2px 9px;border:1px solid var(--line);color:var(--mut);margin-left:6px;vertical-align:middle}
+.st.live{color:#fff;background:var(--bad);border-color:var(--bad)}.st.rep{color:var(--ink)}
+.conn{font-size:.8rem;color:var(--mut);margin-bottom:10px}
+#conn {
+    display: none !important;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AIORI · Live Federated Traffic Intelligence</h1>
+  <div class="sub">Compare the same TrafficMLP forecasting task under centralized training, federated IID and federated non-IID. Predictions are replayed from your real checkpoints against the held-out validation split; live training metrics are read from your output files.</div>
+  <div class="sub">TrafficMLP · 12 historical steps → 12 forecast steps · 5-minute sampling · +60-minute horizon · live values from validation replay</div>
+  <div class="banner" id="conn">Connecting to the demo server…</div>
+  <div class="grid">
+    <div class="card iid"><h2 style="color:var(--iid)">Federated, IID<span class="st" id="st_iid">–</span></h2><p>Clients receive randomly assigned training examples. Sensor buckets below are only a visual replay grouping for IID.</p><canvas id="c_iid" aria-label="Federated IID intersection"></canvas><div class="chips" id="chips_iid"></div></div>
+    <div class="card non"><h2 style="color:var(--non)">Federated, non-IID<span class="st" id="st_non">–</span></h2><p>Each client trains on its own disjoint sensor groups from the partition manifest.</p><canvas id="c_non" aria-label="Federated non-IID intersection"></canvas><div class="chips" id="chips_non"></div></div>
+    <div class="card cls"><h2 style="color:var(--cen)">Classical ML (centralized)<span class="st" id="st_cls">–</span></h2><p>Training examples are centralized for one TrafficMLP; steps are epochs.</p><canvas id="c_cls" aria-label="Classical ML intersection"></canvas><div class="chips" id="chips_cls"></div></div>
+  </div>
+  <div class="ctrl">
+    <button class="p" id="play">Pause</button>
+    <select id="spd"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+    <label class="m">Cars show <select id="view"><option value="current">Current reading</option><option value="prediction" selected>Model prediction</option><option value="actual">Actual validation value</option></select></label>
+    <label class="m">Forecast horizon <select id="horizon"><option value="1">+5 min</option><option value="3">+15 min</option><option value="6">+30 min</option><option value="9">+45 min</option><option value="12" selected>+60 min</option></select></label>
+    <label class="m">Feature visualized <select id="feat"><option value="0">Feature d0</option><option value="1">Feature d1</option></select></label>
+    <label class="file">Load snapshot JSON<input id="file" type="file" accept=".json" hidden></label>
+  </div>
+  <div class="row">
+    <div class="card"><h2>Validation MAE (lower is better)</h2><canvas id="chart"></canvas>
+      <div class="leg"><span><i style="background:var(--cen)"></i>Classical ML (per epoch)</span><span><i style="background:var(--iid)"></i>Federated IID (per round)</span><span><i style="background:var(--non)"></i>Federated non-IID (per round)</span></div></div>
+    <div class="card"><h2>Validation RMSE (lower is better)</h2><canvas id="chart_rmse"></canvas>
+      <div class="leg"><span><i style="background:var(--cen)"></i>Classical ML (per epoch)</span><span><i style="background:var(--iid)"></i>Federated IID (per round)</span><span><i style="background:var(--non)"></i>Federated non-IID (per round)</span></div></div>
+    <div class="card"><h2>Communication volume (estimate)</h2><p>Log scale. Centralized raw-data transfer is approximated by the training Parquet file size. Federated volume uses the project's per-round upload + download estimate.</p>
+      <div class="cb"><div><span id="b_cen" style="background:var(--cen)"></span><b id="v_cen">–</b>Classical</div><div><span id="b_iid" style="background:var(--iid)"></span><b id="v_iid">–</b>Fed IID</div><div><span id="b_non" style="background:var(--non)"></span><b id="v_non">–</b>Fed non-IID</div></div></div>
+    <div class="card"><h2>Key insights</h2><ol id="ins"></ol>
+      <div class="key">Car movement is a visual mapping of the selected model feature (not a literal vehicle-speed measurement). The model predicts 12 future five-minute steps; use the horizon selector to inspect +5 to +60 minutes. <b>Colour = client</b> (A blue, B purple, C teal). <b>Shape = communication</b>: circles are model updates, returning green circles are global-model broadcasts, squares are raw readings in the centralized view. Car colour = mapped congestion level. IID sensor lanes are replay buckets, not actual sensor ownership.</div></div>
+  </div>
+</div>
+<script>
+
+const $ = s => document.querySelector(s);
+const MODES = ["iid", "non_iid", "classical"], OFF = {iid: 0, non_iid: 37, classical: 0};
+const DATA = {clients: {}};
+MODES.forEach(m => DATA.clients[m] = [0,1,2].map(i => ({id: "ABC"[i], speed: 35, density: .5, lvl: .5, p: null})));
+const clientsOf = m => DATA.clients[m];
+const CLR=["#2563eb","#9333ea","#0d9488"]; let VIEW="prediction";
+let css = {}, clock = 0, roundT = 0, tick = 0, playing = true, speed = 1, feat = 0, streamT = 0, idx = 0;
+let S = null, R = null, SC = null, STATIC = false, disp = {iid: 0, non_iid: 0, classical: 0}, HORIZON = 12;
+function readCss(){const s=getComputedStyle(document.documentElement);["ink","mut","line","grass","road","mark","good","warn","bad","iid","non","cen","card"].forEach(k=>css[k]=s.getPropertyValue("--"+k).trim());}
+readCss(); matchMedia("(prefers-color-scheme:dark)").addEventListener("change", readCss);
+const LANES = [ // A: eastbound, B: southbound, C: westbound
+  {x:-20,y:197,dx:1,dy:0,stop:223},{x:223,y:-20,dx:0,dy:1,stop:163},{x:500,y:163,dx:-1,dy:0,stop:223}];
+const ANCH = [[60,197],[223,50],[420,163]], MPH = 1.9, CAR = 14;
+const isGreen = (k,t) => { const c = t % 14; return k===1 ? (c>=7 && c<12.5) : c<5.5; };
+
+function Sim(cv, mode){
+  const W=480,H=360,ctx=cv.getContext("2d"),dpr=Math.min(devicePixelRatio||1,2);
+  cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cars=[[],[],[]], acc=[0,0,0]; let packets=[];
+  const classical = mode==="classical", cl = () => clientsOf(mode), rawAcc=[0,0,0];
+  this.sync = () => { if(classical) return; packets = [];
+    for(let k=0;k<3;k++){
+      packets.push({k,from:ANCH[k],to:[240,180],delay:0,t:0});
+      packets.push({k,from:[240,180],to:ANCH[k],delay:1.2,t:0});
+    } };
+  this.update = dt => {
+    for(let k=0;k<3;k++){
+      const c=cl()[k], L=LANES[k], list=cars[k], vt=c.speed*MPH;
+      acc[k] += dt*c.density*1.1*(1+.4*Math.sin(clock/3+k*2));
+      const last=list[list.length-1];
+      if(acc[k]>=1 && (!last || last.s>CAR+10)){acc[k]=0; list.push({s:0,v:vt,f:.9+Math.random()*.2});}
+      for(let i=0;i<list.length;i++){
+        const car=list[i]; let maxS=Infinity;
+        if(i>0) maxS=list[i-1].s-CAR-5;
+        if(!isGreen(k,clock) && car.s<=L.stop-7) maxS=Math.min(maxS,L.stop-7);
+        car.v += (vt*car.f-car.v)*Math.min(1,dt*2);
+        let n=car.s+car.v*dt; if(n>maxS){n=Math.max(car.s,maxS);car.v=0;}
+        car.s=n;
+      }
+      while(list.length && list[0].s>520) list.shift();
+    }
+    if(classical) for(let k=0;k<3;k++){ rawAcc[k]+=dt*(1+3*cl()[k].density); if(rawAcc[k]>=1){rawAcc[k]=0; packets.push({k,from:ANCH[k],to:[240,180],delay:0,t:0,raw:true});} }
+    packets.forEach(p=>{ if(p.delay>0) p.delay-=dt; else p.t+=dt/1.0; });
+    packets = packets.filter(p=>p.t<1);
+  };
+  this.draw = () => {
+    ctx.fillStyle=css.grass; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=css.road; ctx.fillRect(0,145,W,70); ctx.fillRect(205,0,70,H);
+    ctx.strokeStyle=css.mark; ctx.lineWidth=2; ctx.setLineDash([12,10]);
+    [[0,180,205,180],[275,180,W,180],[240,0,240,145],[240,215,240,H]].forEach(l=>{ctx.beginPath();ctx.moveTo(l[0],l[1]);ctx.lineTo(l[2],l[3]);ctx.stroke();});
+    ctx.setLineDash([]); ctx.lineWidth=3;
+    [[203,180,203,215],[277,145,277,180],[205,143,240,143]].forEach(l=>{ctx.beginPath();ctx.moveTo(l[0],l[1]);ctx.lineTo(l[2],l[3]);ctx.stroke();});
+    for(let k=0;k<3;k++){
+      const L=LANES[k], ang=Math.atan2(L.dy,L.dx);
+      cars[k].forEach(c=>{
+        const r=c.v/(65*MPH);
+        ctx.save(); ctx.translate(L.x+L.dx*c.s,L.y+L.dy*c.s); ctx.rotate(ang);
+        ctx.fillStyle = r>.6?css.good:r>.25?css.warn:css.bad; ctx.fillRect(-CAR/2,-4,CAR,8);
+        ctx.fillStyle="rgba(255,255,255,.55)"; ctx.fillRect(CAR/2-4,-3,3,6); ctx.fillStyle=CLR[k]; ctx.fillRect(-CAR/2,-5,CAR,1.6); ctx.restore();
+      });
+      const lx=[196,222,284][k], ly=[222,138,138][k];
+      ctx.fillStyle=isGreen(k,clock)?css.good:css.bad; ctx.beginPath(); ctx.arc(lx,ly,5,0,7); ctx.fill();
+      const [ax,ay]=[[28,125],[262,24],[452,125]][k];
+      ctx.fillStyle=css.card; ctx.strokeStyle=CLR[k]; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(ax,ay,15,0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=css.ink; ctx.font="700 14px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(cl()[k].id,ax,ay+1);
+    }
+    packets.forEach(p=>{ if(p.delay>0) return; const e=p.t, x=p.from[0]+(p.to[0]-p.from[0])*e, y=p.from[1]+(p.to[1]-p.from[1])*e;
+      if(p.raw){ ctx.fillStyle=CLR[p.k]; ctx.fillRect(x-4,y-4,8,8); }
+      else { const down = p.from[0]===240&&p.from[1]===180; ctx.fillStyle = down ? css.good : CLR[p.k]; ctx.beginPath(); ctx.arc(x,y,5.5,0,7); ctx.fill(); if(down){ctx.strokeStyle=CLR[p.k]; ctx.lineWidth=2; ctx.stroke();} } });
+    ctx.fillStyle=css.ink; ctx.beginPath(); ctx.arc(240,180,13,0,7); ctx.fill();
+    ctx.fillStyle=css.card; ctx.font="700 9px system-ui"; ctx.fillText(classical?"ML":"FL",240,181);
+  };
+}
+
+
+const sims = {iid: new Sim($("#c_iid"), "iid"), non_iid: new Sim($("#c_non"), "non_iid"), classical: new Sim($("#c_cls"), "classical")};
+const ID = {iid: "iid", non_iid: "non", classical: "cls"};
+const fmtB = b => b==null?"–":b>=1e9?(b/1e9).toFixed(1)+" GB":b>=1e6?(b/1e6).toFixed(1)+" MB":b>=1e3?(b/1e3).toFixed(0)+" KB":Math.round(b)+" B";
+const rowsOf = m => !S ? [] : m==="classical" ? S.classical.epochs : S.modes[m].rounds;
+const maeOf = (m, r) => m==="classical" ? r.val_mae : r.val_mae_norm;
+const rmseOf = (m, r) => m==="classical" ? r.val_rmse : r.val_rmse_norm;
+const series = m => rowsOf(m).slice(0, disp[m]).map(r => maeOf(m, r));
+const rmseSeries = m => rowsOf(m).slice(0, disp[m]).map(r => rmseOf(m, r));
+const live = m => S && (m==="classical" ? S.classical.running : S.modes[m].running);
+const replayKey = m => m; // Never substitute another model checkpoint into a missing comparison panel.
+const pts = m => R && R.modes[replayKey(m)];
+// Replay record layout: timestamp, sensor, current[2], predictions[12][2], actuals[12][2].
+function valueAt(p, kind=VIEW, feature=feat){
+  if(kind === "current") return p[2 + feature];
+  const base = kind === "prediction" ? 4 : 28;
+  return p[base + (HORIZON - 1) * 2 + feature];
+}
+
+function scale(){
+  if(!R) return null; const v = [];
+  Object.values(R.modes).forEach(cs => cs && cs.forEach(c => c.points.forEach(p => v.push(valueAt(p,VIEW,feat),p[2+feat],valueAt(p,"actual",feat)))));
+  if(v.length < 2) return null; v.sort((a,b) => a-b);
+  const q = f => v[Math.floor(f*(v.length-1))]; let lo = q(.05), hi = q(.95);
+  if(hi <= lo){lo = v[0]; hi = v[v.length-1];}
+  return {lo, hi: hi > lo ? hi : lo+1};
+}
+function applyStream(dt){
+  if(!SC) return;
+  MODES.forEach(m => { const cs = pts(m); if(!cs) return;
+    DATA.clients[m].forEach((d, k) => { const c = cs[k]; if(!c || !c.points.length) return;
+      const p = c.points[(idx + OFF[m] + k*13) % c.points.length];
+      const t = Math.max(0, Math.min(1, (valueAt(p,VIEW,feat)-SC.lo)/(SC.hi-SC.lo)));
+      d.lvl += (t-d.lvl)*Math.min(1, dt*1.5); d.speed = 8+57*d.lvl; d.density = .2+.8*(1-d.lvl); d.p = p; d.cid = c.client_id; });
+  });
+}
+function label(l){ return l<.35?["Heavy","var(--bad)"]:l<.65?["Moderate","var(--warn)"]:["Light","var(--good)"]; }
+function chips(){
+  MODES.forEach(m => { const man = S && m!=="classical" && S.modes[m].manifest;
+    $("#chips_"+ID[m]).innerHTML = DATA.clients[m].map((d,k) => { const [t,col] = label(d.lvl), c = man && man.clients[k];
+      const cm = pts(m) && pts(m)[k], pr = d.p && d.p.length>=8;
+      return `<div class="chip" style="--cc0:${CLR[k]}"><b style="color:${CLR[k]}">${d.cid||"Client "+d.id}</b><span class="tag" style="color:${col}">${d.p?t+" traffic":"no data yet"}</span><br>`
+        + (d.p ? `sensor ${d.p[1]} · now ${d.p[2+feat].toFixed(1)}<br>` + (pr ? `predicted +${HORIZON*5}m <b>${valueAt(d.p,"prediction",feat).toFixed(2)}</b> vs actual ${valueAt(d.p,"actual",feat).toFixed(2)} <span style="color:${Math.abs(valueAt(d.p,"prediction",feat)-valueAt(d.p,"actual",feat))<(SC?(SC.hi-SC.lo)*.1:1)?"var(--good)":"var(--warn)"}">(err ${Math.abs(valueAt(d.p,"prediction",feat)-valueAt(d.p,"actual",feat)).toFixed(2)})</span><br>` : "") : "")
+        + (cm && cm.mae_by_horizon ? `avg error d${feat} @ +${HORIZON*5}m: ${cm.mae_by_horizon[HORIZON-1][feat].toFixed(2)}<br>` : "")
+        + (c ? `${(+c.num_examples).toLocaleString()} examples · ${c.n_sensors} sensors` : "") + `</div>`; }).join("");
+  });
+}
+function status(){
+  MODES.forEach(m => { const el = $("#st_"+ID[m]), n = rowsOf(m).length, tot = m==="classical" ? null : S && S.modes[m].config.rounds;
+    if(!n){el.textContent = "no results yet"; el.className = "st"; return;}
+    const unit = m==="classical" ? "epoch" : "round";
+    el.textContent = (live(m) ? "LIVE · " : "Replay · ") + unit + " " + disp[m] + "/" + (live(m) && tot ? tot : n);
+    el.className = "st " + (live(m) ? "live" : "rep"); });
+}
+function drawMetricChart(canvasId, metricSeries, metricLabel){
+  const cv = $("#"+canvasId), W = 560, H = 250, ctx = cv.getContext("2d"), dpr = Math.min(devicePixelRatio||1, 2);
+  if(cv.width !== W*dpr){cv.width = W*dpr; cv.height = H*dpr;}
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const SS = [["classical",css.cen],["iid",css.iid],["non_iid",css.non]].map(([m,c]) => [metricSeries(m), c]);
+  const all = SS.flatMap(([a]) => a).filter(v => v != null && Number.isFinite(v));
+  ctx.font = "12px system-ui"; ctx.fillStyle = css.mut;
+  if(!all.length){ctx.fillText("Waiting for validation "+metricLabel+"…", 20, 40); return;}
+  const n = Math.max(2, ...MODES.map(m => rowsOf(m).length),
+    (S.modes.iid.config.rounds)||0, (S.modes.non_iid.config.rounds)||0);
+  const mx = Math.max(...all)*1.1 || 1, L = 48, B = 28, T = 10;
+  const X = i => L+(W-L-14)*(i/(n-1)), Y = v => T+(H-T-B)*(1-v/mx);
+  ctx.strokeStyle = css.line; ctx.lineWidth = 1; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for(let g=0; g<=4; g++){
+    const v = mx*g/4, y = Y(v); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-6,y); ctx.stroke();
+    ctx.fillText(v.toFixed(3), L-6, y);
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for(let i=0; i<n; i++) ctx.fillText(i+1, X(i), H-B+8);
+  SS.forEach(([a,col]) => {
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.5; ctx.beginPath();
+    let started = false;
+    a.forEach((v,i) => {
+      if(v == null || !Number.isFinite(v)){started = false; return;}
+      if(started) ctx.lineTo(X(i),Y(v)); else ctx.moveTo(X(i),Y(v));
+      started = true;
+    });
+    ctx.stroke();
+    a.forEach((v,i) => {if(v == null || !Number.isFinite(v)) return;
+      ctx.beginPath(); ctx.arc(X(i),Y(v),3.5,0,7); ctx.fill();
+    });
+  });
+}
+function drawChart(){
+  drawMetricChart("chart", series, "MAE");
+  drawMetricChart("chart_rmse", rmseSeries, "RMSE");
+}
+
+function render(){
+  if(!S) return;
+  status(); drawChart();
+  const cum = m => rowsOf(m).slice(0, disp[m]).reduce((s,r) => s + (+r.est_comm_bytes||0), 0) || null;
+  const bytes = {cen: S.classical.data_bytes, iid: cum("iid"), non: cum("non_iid")};
+  const pos = v => v ? Math.max(2, Math.min(100, (Math.log10(v)-3)/7*100)) : 0;
+  Object.entries(bytes).forEach(([k,v]) => {$("#b_"+k).style.height = pos(v)+"%"; $("#v_"+k).textContent = v ? "≈ "+fmtB(v) : "–";});
+  const a = series("iid").at(-1), b = series("non_iid").at(-1), c = series("classical").at(-1), L = [];
+  if(a != null && b != null) L.push(`Federated validation MAE is ${a.toFixed(3)} (IID) vs ${b.toFixed(3)} (non-IID), ${Math.abs((b-a)/a*100).toFixed(1)}% ${b>a?"higher":"lower"} for non-IID at these rounds.`);
+  if(a != null && b != null) L.push(b>a ? "Uneven clients pull the shared model in different directions, so non-IID trails IID in this run." : "In this run non-IID did not trail IID, so the heterogeneity here was mild.");
+  if(c != null) L.push(`Classical ML reaches ${c.toFixed(3)} MAE at epoch ${disp.classical}, but needs all raw data in one place.`);
+  if(bytes.cen && (bytes.iid||bytes.non)) L.push(`Federated has moved about ${fmtB(bytes.iid||bytes.non)} of model weights so far vs ${fmtB(bytes.cen)} to upload the raw training file (estimates).`);
+  const me = m => { const cs = R && R.modes[m]; return cs ? cs.map(c => c.mae_by_horizon ? c.mae_by_horizon[HORIZON-1][feat] : c.mae[feat]) : null; }, avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+  const mi = me("iid"), mn = me("non_iid"), mc = me("classical");
+  if(mi && mn) L.push(`Prediction error on the replayed sensors (+${HORIZON*5} min, d${feat}): federated IID ${avg(mi).toFixed(2)}, non-IID ${avg(mn).toFixed(2)}`+(mc?`, centralized ${avg(mc).toFixed(2)}.`:"."));
+  L.push("Federated training keeps raw training partitions local to each simulated client and shares model weights for FedAvg. This demo does not implement secure aggregation, differential privacy or encrypted transport; it is not a formal privacy guarantee.");
+  $("#ins").innerHTML = L.map(t => `<li>${t}</li>`).join("");
+}
+function stepRounds(){
+  MODES.forEach(m => { const n = rowsOf(m).length; const d = !n ? 0 : live(m) ? n : (tick % n) + 1;
+    if(d !== disp[m]){ disp[m] = d; if(d) sims[m].sync(); } });
+  render();
+}
+async function loadReplay(){ try{ const r = await (await fetch("/api/replay", {cache:"no-store"})).json(); R = r; SC = scale(); }catch(e){} }
+async function poll(){
+  if(STATIC) return;
+  try{
+    S = await (await fetch("/api/state", {cache:"no-store"})).json();
+    const ver = S.replay_version; if(ver !== (R && R.version)){ await loadReplay(); if(R) R.version = ver; }
+    const st = Object.entries(S.replay_status).map(([m,v]) => `${m}: ${v}`).join(" · ");
+    $("#conn").textContent = "Connected · live files re-read every 2 s · sensor replay " + st;
+    stepRounds();
+  }catch(e){ $("#conn").textContent = "Cannot reach the demo API. Start it from the project root with: python -m demo.server"; }
+  setTimeout(poll, 2000);
+}
+$("#play").onclick = () => {playing = !playing; $("#play").textContent = playing ? "Pause" : "Play";};
+$("#spd").onchange = e => speed = +e.target.value;
+$("#view").onchange = e => {VIEW = e.target.value; SC = scale();};
+$("#horizon").onchange = e => {HORIZON = +e.target.value; SC = scale(); chips();};
+$("#feat").onchange = e => {feat = +e.target.value; SC = scale();};
+$("#file").onchange = e => { const f = e.target.files[0]; if(!f) return; const fr = new FileReader();
+  fr.onload = () => { try{ const j = JSON.parse(fr.result); STATIC = true; S = j.state; R = j.replay; SC = scale();
+    $("#conn").textContent = "Showing a saved snapshot (not live)."; stepRounds(); }catch(x){ alert("Could not read that snapshot file."); } };
+  fr.readAsText(f); };
+let last = performance.now(), chipT = 0;
+(function loop(now){
+  const dt = Math.min(.05, (now-last)/1000)*speed; last = now;
+  if(playing){
+    clock += dt; roundT += dt; streamT += dt; chipT += dt;
+    if(streamT > 1.4){streamT = 0; idx++;}
+    if(roundT >= 6){roundT = 0; tick++; stepRounds();}
+    applyStream(dt); MODES.forEach(m => sims[m].update(dt));
+    if(chipT > .7){chipT = 0; chips();}
+  }
+  MODES.forEach(m => sims[m].draw());
+  requestAnimationFrame(loop);
+})(last);
+poll();
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "mode": "iid",
+  "manifest_path": "data/federated/iid/partition_manifest.json",
+  "output_dir": "results/federated/iid",
+  "rounds": 5,
+  "local_epochs": 1,
+  "learning_rate": 0.001,
+  "batch_size": 4096,
+  "seed": 42,
+  "device": "cpu",
+  "max_val_batches": null,
+  "clients": [
+    {
+      "client_id": "client_A",
+      "path": "data\\federated\\iid\\client_A_train.parquet",
+      "expected_examples": 3950246
+    },
+    {
+      "client_id": "client_B",
+      "path": "data\\federated\\iid\\client_B_train.parquet",
+      "expected_examples": 3949353
+    },
+    {
+      "client_id": "client_C",
+      "path": "data\\federated\\iid\\client_C_train.parquet",
+      "expected_examples": 3947626
+    }
+  ],
+  "scaler_mean": [
+    62.73526382446289,
+    0.49755120277404785
+  ],
+  "scaler_std": [
+    9.439212799072266,
+    0.28844907879829407
+  ],
+  "model_bytes": 52064,
+  "torch_version": "2.15.0+cpu",
+  "python_version": "3.12.10",
+  "comm_bytes_note": "Estimate only: 2 * model_bytes * participating_clients per round (1 download + 1 upload per client); no real network transfer.",
+  "loss_note": "local_loss_* is the mean per-example TRAINING loss reported by clients (normalized scale, MSE).",
+  "completed_rounds": 5,
+  "best_round": 4,
+  "best_val_mae_norm": 0.1809626079747969,
+  "total_duration_sec": 163.74
+}

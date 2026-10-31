@@ -1,4 +1,5 @@
 import random
+import csv
 import numpy as np
 import torch
 import torch.nn as nn
@@ -105,6 +106,10 @@ def train():
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     best_val_mae = float("inf")
+    history_path = MODEL_DIR / "training_history.csv"
+    with history_path.open("w", newline="", encoding="utf-8") as history_file:
+        history_writer = csv.DictWriter(history_file, fieldnames=["epoch", "train_mse", "val_mae", "val_rmse"])
+        history_writer.writeheader()
 
     print("\nStarting training...")
     print("Epochs:", EPOCHS)
@@ -174,6 +179,18 @@ def train():
             f"| Validation MAE: {val_mae:.6f} "
             f"| Validation RMSE: {val_rmse:.6f}"
         )
+        # The live demo reads this file to draw the centralized epoch curve.
+        with history_path.open("a", newline="", encoding="utf-8") as history_file:
+            history_writer = csv.DictWriter(
+                history_file,
+                fieldnames=["epoch", "train_mse", "val_mae", "val_rmse"],
+            )
+            history_writer.writerow({
+                "epoch": epoch + 1,
+                "train_mse": train_loss,
+                "val_mae": val_mae,
+                "val_rmse": val_rmse,
+            })
 
         # Save the model whenever validation MAE improves.
         if val_mae < best_val_mae:
@@ -186,8 +203,8 @@ def train():
                     "optimizer_state_dict": optimizer.state_dict(),
                     "validation_mae": val_mae,
                     "validation_rmse": val_rmse,
-                    "mean": np.asarray(mean),
-                    "std": np.asarray(std),
+                    "mean": [float(x) for x in np.asarray(mean).ravel()],
+                    "std": [float(x) for x in np.asarray(std).ravel()],
                 },
                 MODEL_PATH,
             )

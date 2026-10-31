@@ -18,3 +18,21 @@ data/processed/
 
 # Environment variables
 .env
+
+# Python virtual environments
+.venv/
+.venv312/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+
+# Model and dataset files (if large)
+*.pt
+*.pth
+*.ckpt
